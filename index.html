@@ -57,7 +57,11 @@
   a{color:var(--accent);}
   h1,h2,h3{font-family:"Fraunces", Georgia, serif; text-wrap:balance; margin:0;}
 
-  .wrap{max-width:1180px; margin:0 auto; padding:28px 24px 64px;}
+  .wrap{
+    max-width:1180px; margin:0 auto; padding:28px 24px 20px; box-sizing:border-box;
+    height:100vh; display:flex; flex-direction:column;
+  }
+  .wrap > *{flex:none;}
 
   /* ---- Top bar ---- */
   .topbar{display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px;}
@@ -117,7 +121,10 @@
   .group-divider::after{content:""; flex:1; height:1px; background:var(--line);}
 
   /* ---- Event list ---- */
-  .list{display:flex; flex-direction:column; gap:8px;}
+  .list{
+    display:flex; flex-direction:column; gap:8px;
+    flex:1 1 auto; min-height:0; overflow-y:auto; padding-bottom:16px;
+  }
   .event{
     background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--line);
     border-radius:9px; box-shadow:var(--shadow);
