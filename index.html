@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twist Booking Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style id="app-style">
+  :root{
+    /* Brand palette: Background #1D1D1D · Foreground #EFEAE6 · Accents #B3D6D3 / #C7DDD9 / #DBE3E0 */
+    color-scheme: light dark;
+    --paper:#EFEAE6; --surface:#FCFAF8; --surface-2:#E7F0EE; --ink:#1D1D1D; --muted:#716C65; --line:#DFD6CB;
+    --accent:#3F7C74; --accent-contrast:#F6F3EF; --accent-ink:#2A5650; --accent-soft:#DBE3E0;
+    --brand-1:#B3D6D3; --brand-2:#C7DDD9; --brand-3:#DBE3E0;
+    --reserved:#2E6CA4; --reserved-bg:#E4EEF7;
+    --complete:#2F8F5B; --complete-bg:#E3F3E9;
+    --cancelled:#95564F; --cancelled-bg:#F3E7E3;
+    --inquiry:#A9761E; --inquiry-bg:#F8EFDC;
+    --overdue:#C25A17; --overdue-bg:#FBE1C7;
+    --review:#B23A3A;
+    --shadow: 0 1px 2px rgba(29,29,29,.08), 0 8px 24px -12px rgba(29,29,29,.2);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1D1D1D; --surface:#242424; --surface-2:#223230; --ink:#EFEAE6; --muted:#AFA89F; --line:#383430;
+      --accent:#8FCFC3; --accent-contrast:#1D1D1D; --accent-ink:#CFEAE3; --accent-soft:#25332F;
+      --brand-1:#3F5B57; --brand-2:#496B66; --brand-3:#556F6B;
+      --reserved:#7FB4E4; --reserved-bg:#1F2F3E;
+      --complete:#7FCB9C; --complete-bg:#1E3327;
+      --cancelled:#E0A79E; --cancelled-bg:#3A2723;
+      --inquiry:#E5BD6E; --inquiry-bg:#3A2E14;
+      --overdue:#F2A05E; --overdue-bg:#402711;
+      --review:#F08080;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1D1D1D; --surface:#242424; --surface-2:#223230; --ink:#EFEAE6; --muted:#AFA89F; --line:#383430;
+    --accent:#8FCFC3; --accent-contrast:#1D1D1D; --accent-ink:#CFEAE3; --accent-soft:#25332F;
+    --brand-1:#3F5B57; --brand-2:#496B66; --brand-3:#556F6B;
+    --reserved:#7FB4E4; --reserved-bg:#1F2F3E;
+    --complete:#7FCB9C; --complete-bg:#1E3327;
+    --cancelled:#E0A79E; --cancelled-bg:#3A2723;
+    --inquiry:#E5BD6E; --inquiry-bg:#3A2E14;
+    --overdue:#F2A05E; --overdue-bg:#402711;
+    --review:#F08080;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:"Source Sans 3", ui-sans-serif, system-ui, sans-serif; font-size:14px; line-height:1.5;}
+  img{max-width:100%;}
+  [hidden]{display:none !important;}
+  ::selection{background:var(--accent-soft); color:var(--accent-ink);}
+  input, select, textarea, button{font-family:inherit; font-size:inherit; color:inherit;}
+  a{color:var(--accent);}
+  h1,h2,h3{font-family:"Fraunces", Georgia, serif; text-wrap:balance; margin:0;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 24px 64px;}
+
+  /* ---- Top bar ---- */
+  .topbar{display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px;}
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand .mark{
+    display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+    background:var(--accent); color:var(--accent-contrast); border-radius:8px; font-family:"Fraunces",serif; font-weight:600; font-size:17px;
+    box-shadow:var(--shadow); transform:rotate(-4deg);
+  }
+  .brand h1{font-size:23px; font-weight:600; letter-spacing:-0.01em;}
+  .brand .sub{color:var(--muted); font-size:12.5px; letter-spacing:.03em; text-transform:uppercase; margin-top:2px;}
+  .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .add-btn, .lock-btn{
+    background:var(--accent); color:var(--accent-contrast); border:none; padding:10px 18px; border-radius:8px; font-weight:600;
+    cursor:pointer; box-shadow:var(--shadow); transition:filter .15s ease, transform .15s ease;
+  }
+  .lock-btn{background:var(--surface); color:var(--ink); border:1px solid var(--line); box-shadow:none;}
+  .add-btn:hover, .lock-btn:hover{filter:brightness(1.06); transform:translateY(-1px);}
+  .add-btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
+  .add-btn:focus-visible, .lock-btn:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  /* ---- Stat tiles ---- */
+  .stats{display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-bottom:20px;}
+  .stat{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 15px;}
+  .stat .n{font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; font-size:22px; font-weight:600; line-height:1.1;}
+  .stat .l{color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; margin-top:5px;}
+  .stat.warn .n{color:var(--overdue);}
+  .stat.flag .n{color:var(--review);}
+
+  /* ---- Controls ---- */
+  .controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;}
+  .search{
+    flex:1 1 220px; background:var(--surface); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; min-width:180px;
+  }
+  .search:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    background:var(--surface); border:1px solid var(--line); color:var(--muted); border-radius:999px;
+    padding:6px 12px; font-size:12.5px; cursor:pointer; font-weight:600; white-space:nowrap;
+  }
+  .chip[aria-pressed="true"]{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .count-line{color:var(--muted); font-size:12.5px; margin:2px 0 14px;}
+  .list-header{
+    display:grid; grid-template-columns: 96px 1.35fr 108px 118px 108px 92px 110px 92px 28px 22px;
+    align-items:end; gap:10px; padding:0 14px; margin-bottom:6px;
+    color:var(--muted); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  }
+  .list-header .lh-right{text-align:right;}
+  @media (max-width:920px){ .list-header{display:none;} }
+  .group-divider{
+    display:flex; align-items:center; gap:10px; color:var(--muted); font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em; margin:14px 2px 2px;
+  }
+  .group-divider::after{content:""; flex:1; height:1px; background:var(--line);}
+
+  /* ---- Event list ---- */
+  .list{display:flex; flex-direction:column; gap:8px;}
+  .event{
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--line);
+    border-radius:9px; box-shadow:var(--shadow);
+  }
+  .event.status-reserved{border-left-color:var(--reserved);}
+  .event.status-complete{border-left-color:var(--complete);}
+  .event.status-cancelled{border-left-color:var(--cancelled);}
+  .event.status-inquiry{border-left-color:var(--inquiry);}
+  .event.is-overdue{border-left-color:var(--overdue);}
+  .event.is-overdue > .row{background:var(--overdue-bg);}
+  .event.is-overdue > .row:hover{filter:brightness(0.97);}
+  .overdue-tag{
+    display:inline-block; margin-top:3px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--overdue); background:var(--surface); border:1px solid var(--overdue); border-radius:4px; padding:1px 5px;
+    white-space:nowrap;
+  }
+
+  .row{
+    display:grid; cursor:pointer;
+    grid-template-columns: 96px 1.35fr 108px 118px 108px 92px 110px 92px 28px 22px;
+    align-items:center; gap:10px; padding:11px 14px;
+  }
+  .row:hover{background:var(--surface-2);}
+  .cell{min-width:0;}
+  .date-cell{font-family:"IBM Plex Mono", monospace; font-size:12.5px;}
+  .date-cell .d{font-weight:600;}
+  .date-cell .w{color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.03em;}
+  .date-cell.no-date{color:var(--review); font-style:italic; font-family:inherit;}
+  .name-cell{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .name-cell .loc{display:block; font-weight:400; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .time-cell{font-family:"IBM Plex Mono", monospace; font-size:12px; color:var(--muted);}
+
+  .pill{
+    display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:4px 10px;
+    font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; border:1px solid transparent;
+  }
+  .pill.reserved{background:var(--reserved-bg); color:var(--reserved);}
+  .pill.complete{background:var(--complete-bg); color:var(--complete);}
+  .pill.cancelled{background:var(--cancelled-bg); color:var(--cancelled);}
+  .pill.inquiry{background:var(--inquiry-bg); color:var(--inquiry);}
+  .pill.overdue{background:var(--overdue-bg); color:var(--overdue);}
+  .pill.blank{background:var(--surface-2); color:var(--muted);}
+
+  .status-select{
+    appearance:none; -webkit-appearance:none; border:1px solid transparent; border-radius:999px; padding:5px 24px 5px 11px;
+    font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; cursor:pointer;
+    background-repeat:no-repeat; background-position:right 8px center; background-size:9px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  }
+  .status-select.reserved{background-color:var(--reserved-bg); color:var(--reserved);}
+  .status-select.complete{background-color:var(--complete-bg); color:var(--complete);}
+  .status-select.cancelled{background-color:var(--cancelled-bg); color:var(--cancelled);}
+  .status-select.inquiry{background-color:var(--inquiry-bg); color:var(--inquiry);}
+  .status-select.blank{background-color:var(--surface-2); color:var(--muted);}
+
+  .money-cell{font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; text-align:right; font-size:13px;}
+  .money-cell .b{font-weight:600;}
+  .money-cell .d{display:block; color:var(--muted); font-size:11px;}
+
+  .deposit-cell{display:flex; flex-direction:column; align-items:flex-start; gap:3px;}
+  .deposit-cell .dep-amt{font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; font-size:12.5px; font-weight:600;}
+  .deposit-cell .pill{padding:2px 8px; font-size:10px;}
+
+  .flag-cell{display:flex; align-items:center; justify-content:center;}
+  .flag-dot{width:8px; height:8px; border-radius:50%; background:var(--review); box-shadow:0 0 0 3px var(--overdue-bg);}
+  .chev{color:var(--muted); transition:transform .15s ease; justify-self:center;}
+  .event.open .chev{transform:rotate(90deg);}
+
+  /* ---- Expanded detail ---- */
+  .detail{display:none; border-top:1px solid var(--line); padding:16px 18px 18px; background:var(--surface-2); border-radius:0 0 9px 9px;}
+  .event.open .detail{display:block;}
+  .detail-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:12px 16px;}
+  .field{display:flex; flex-direction:column; gap:4px; min-width:0;}
+  .field label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:600;}
+  .field input, .field select{
+    background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:7px 9px; width:100%;
+  }
+  .field input:disabled, .field select:disabled{opacity:.65;}
+  .field.wide{grid-column:span 2;}
+  .field.full{grid-column:1 / -1;}
+  .field textarea{
+    background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:8px 9px; width:100%;
+    min-height:56px; resize:vertical; font-family:inherit;
+  }
+  .toggle-row{display:flex; align-items:center; gap:22px; margin-top:14px; flex-wrap:wrap;}
+  .toggle{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted); cursor:pointer;}
+  .toggle input{accent-color:var(--accent); width:15px; height:15px;}
+  .gcal-link{font-size:12.5px; font-weight:600; color:var(--accent); text-decoration:none;}
+  .gcal-link:hover{text-decoration:underline;}
+  .gcal-link-disabled{color:var(--muted); font-weight:400; cursor:default;}
+  .detail-foot{display:flex; justify-content:space-between; align-items:center; margin-top:16px; gap:10px; flex-wrap:wrap;}
+  .save-hint{color:var(--muted); font-size:11.5px;}
+  .delete-btn{background:none; border:1px solid var(--cancelled); color:var(--cancelled); border-radius:7px; padding:7px 13px; cursor:pointer; font-size:12.5px; font-weight:600;}
+  .delete-btn:hover{background:var(--cancelled-bg);}
+  .delete-btn:disabled{opacity:.5; cursor:not-allowed;}
+
+  .empty{padding:48px 20px; text-align:center; color:var(--muted);}
+
+  /* ---- Modal ---- */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(20,16,22,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; z-index:20;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface); border-radius:12px; max-width:640px; width:100%; padding:24px; box-shadow:var(--shadow);}
+  .modal h2{font-size:19px; margin-bottom:16px;}
+  .modal .detail-grid{margin-bottom:6px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+  .btn-secondary{background:none; border:1px solid var(--line); color:var(--ink); padding:9px 16px; border-radius:8px; cursor:pointer; font-weight:600;}
+  .btn-primary{background:var(--accent); color:var(--accent-contrast); border:none; padding:9px 16px; border-radius:8px; cursor:pointer; font-weight:600;}
+
+  .status-banner{
+    display:none; align-items:center; gap:8px; background:var(--inquiry-bg); color:var(--inquiry);
+    border:1px solid var(--inquiry); border-radius:8px; padding:9px 13px; font-size:12.5px; margin-bottom:16px;
+  }
+  .status-banner.show{display:flex;}
+
+  @media (max-width:920px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .row{grid-template-columns: 78px 1fr 60px 26px 22px; grid-template-areas: "date name price flag chev" "date time status status status";}
+    .row .date-cell{grid-area:date;} .row .name-cell{grid-area:name;} .row .time-cell{grid-area:time; grid-column:1/-1;}
+    .row .status-cell{grid-area:status; grid-column:1/-1; justify-self:start;}
+    .row .booth-cell, .row .deposit-cell{display:none;}
+    .row .price-cell{grid-area:price;}
+    .row .flag-cell{grid-area:flag;} .row .chev{grid-area:chev;}
+    .detail-grid{grid-template-columns:repeat(2,1fr);}
+    .field.wide{grid-column:span 2;}
+  }
+</style>
+</head>
+<body>
+<div id="bodyShell">
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">T</span>
+      <div>
+        <h1>Twist Booking Board</h1>
+        <div class="sub">Photo booth events &amp; calendar</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="lock-btn" id="lockBtn" type="button">🔒 Unlock editing</button>
+      <button class="add-btn" id="addBtn" type="button" disabled>+ Add event</button>
+    </div>
+  </div>
+
+  <div class="status-banner" id="writeBanner">
+    <span id="writeBannerText">Read-only — click "Unlock editing" and enter the shared password to make changes.</span>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input class="search" id="search" type="text" placeholder="Search client, location, notes…">
+    <div class="chip-row" id="statusChips">
+      <button class="chip" data-filter="all" aria-pressed="true" type="button">All</button>
+      <button class="chip" data-filter="Reserved" type="button">Reserved</button>
+      <button class="chip" data-filter="Complete" type="button">Complete</button>
+      <button class="chip" data-filter="Cancelled" type="button">Cancelled</button>
+      <button class="chip" data-filter="Inquiry" type="button">Inquiry</button>
+      <button class="chip" data-filter="overdue" type="button">Overdue</button>
+      <button class="chip" data-filter="review" type="button">Needs review</button>
+    </div>
+  </div>
+
+  <div class="count-line" id="countLine"></div>
+  <div class="list-header" aria-hidden="true">
+    <div>Date</div>
+    <div>Client</div>
+    <div>Time</div>
+    <div>Status</div>
+    <div>Booth</div>
+    <div class="lh-right">Price</div>
+    <div>Deposit</div>
+    <div></div>
+    <div></div>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2>Add event</h2>
+    <div class="detail-grid" id="modalGrid"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="modalSave" type="button">Save event</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+  // ---- Supabase project config ----
+  // Fill these in from your Supabase project's Settings > API page.
+  // The anon key is meant to be public (Row Level Security enforces
+  // read/write rules server-side) — it's safe to ship in this static file.
+  window.SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+  window.SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+</script>
+
+<script type="application/json" id="event-data">[{"id":"cary-feldman","name":"Cary Feldman","phone":"","email":"","date":"2024-11-15","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Sent","depositAmount":50.0,"location":"Scottsdale AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"marta-reus","name":"Marta Reus","phone":"","email":"","date":"2024-12-07","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":700.0,"depositStatus":"Sent","depositAmount":50.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"briana-wellington","name":"Briana Wellington","phone":"","email":"","date":"2024-12-15","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":50.0,"location":"Chandler AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"darlene-franciosa","name":"Darlene Franciosa","phone":"","email":"","date":"2025-01-04","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Not Required","depositAmount":0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"lauren-dahl","name":"Lauren Dahl","phone":"","email":"","date":"2025-02-04","start":"17:30","end":"20:00","durationHrs":null,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"North Scottsdale","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"emily-ullrich","name":"Emily Ullrich","phone":"","email":"","date":"2025-02-07","start":"17:30","end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":550.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"silpa-reddy","name":"Silpa Reddy","phone":"","email":"","date":"2025-02-08","start":"18:30","end":null,"durationHrs":2.0,"status":"Complete","boothType":"360","prints":"No","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"sasha-garcia","name":"Sasha Garcia","phone":"","email":"","date":"2025-02-22","start":"16:00","end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":350.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Avondale AZ","staff":"","equipment":"They have their own backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"alison-edelstein","name":"Alison Edelstein","phone":"","email":"","date":"2025-02-22","start":"05:00","end":null,"durationHrs":null,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"black backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"josh-hipps","name":"Josh Hipps","phone":"","email":"","date":"2025-03-01","start":"08:00","end":null,"durationHrs":3.0,"status":"Complete","boothType":"Both","prints":"No","price":1150.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Sun City AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Want to do greatest showman theme, needs us there by 7 to have everything set up by 7:30.","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"the-frost-event","name":"The frost event","phone":"","email":"","date":"2025-03-08","start":null,"end":null,"durationHrs":null,"status":"Complete","boothType":"White","prints":"Yes","price":null,"depositStatus":"","depositAmount":null,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"rachel-locker","name":"Rachel Locker","phone":"","email":"","date":"2025-03-14","start":"18:30","end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Will let us know in 2 weeks from 1/19 if they want to book","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"shawntel-brian-goodwin","name":"Shawntel&Brian Goodwin","phone":"","email":"","date":"2025-03-15","start":"15:30","end":null,"durationHrs":3.0,"status":"Complete","boothType":"360","prints":"No","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Surprise AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"carlos-rosales","name":"Carlos Rosales","phone":"","email":"","date":"2025-03-22","start":"06:00","end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Gilbert AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"alex-s-friend-event","name":"Alex's friend event","phone":"","email":"","date":"2025-03-29","start":null,"end":null,"durationHrs":null,"status":"Cancelled","boothType":"White","prints":"Yes","price":200.0,"depositStatus":"Not Required","depositAmount":0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"elizabeth-marzeleno","name":"Elizabeth Marzeleno","phone":"","email":"","date":"2025-03-29","start":null,"end":null,"durationHrs":null,"status":"Cancelled","boothType":"","prints":"","price":null,"depositStatus":"Not Sent","depositAmount":100.0,"location":"West Phoenix","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Said she would talk to her husband and get back to us. This is for a birthday party, she just wanted to do something special.; Original duration entry: Couple hours....","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"sierra-lopez","name":"Sierra Lopez","phone":"","email":"","date":"2025-04-05","start":"07:00","end":null,"durationHrs":3.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"stacey-voss","name":"Stacey Voss","phone":"","email":"","date":"2025-04-09","start":"04:30","end":null,"durationHrs":4.0,"status":"Complete","boothType":"White","prints":"No","price":500.0,"depositStatus":"Not Required","depositAmount":100.0,"location":"Scottsdale","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Corporate event","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"melissa-hernandez","name":"Melissa Hernandez","phone":"","email":"","date":"2025-04-19","start":"18:00","end":null,"durationHrs":4.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":900.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Laveen AZ","staff":"","equipment":"light pink backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"thiru-thangartahinam","name":"Thiru Thangartahinam","phone":"","email":"","date":"2025-04-19","start":"19:00","end":"22:00","durationHrs":3.0,"status":"Complete","boothType":"360","prints":"No","price":800.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Chandler AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"vida-heers","name":"Vida Heers","phone":"","email":"","date":"2025-04-24","start":"06:30","end":null,"durationHrs":3.0,"status":"Cancelled","boothType":"Both","prints":"No","price":null,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Check messages for pricing","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"ryan-lopez","name":"Ryan Lopez","phone":"","email":"","date":"2025-04-25","start":"06:30","end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"Need to find a scrapbook to fill and they are still deciding on Backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"to get","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"keith-d","name":"Keith D","phone":"","email":"","date":"2025-05-04","start":"10:00","end":null,"durationHrs":2.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Not Required","depositAmount":0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Corporate Office Event","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"kyle-dodaro","name":"Kyle Dodaro","phone":"","email":"","date":"2025-05-08","start":"04:30","end":null,"durationHrs":4.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":750.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Old money corporate event, will let us know if they want to reserve soon","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"victoria-l","name":"Victoria L","phone":"","email":"","date":"2025-05-17","start":"19:00","end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":450.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"christina-g","name":"Christina G","phone":"","email":"","date":"2025-07-26","start":"07:00","end":null,"durationHrs":2.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Glendale AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"sydney-o-neill","name":"Sydney O'neill","phone":"","email":"","date":"2025-08-13","start":"16:00","end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":450.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"karen-perez","name":"Karen Perez","phone":"","email":"","date":"2025-08-16","start":"19:00","end":"22:00","durationHrs":3.0,"status":"Complete","boothType":"White","prints":"No","price":450.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Litchfield AZ","staff":"","equipment":"White backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"no attendant, just camera and digital sharing","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"amy-jones","name":"Amy Jones","phone":"","email":"","date":"2025-08-23","start":null,"end":null,"durationHrs":6.0,"status":"Complete","boothType":"White","prints":"No","price":500.0,"depositStatus":"Not Required","depositAmount":0,"location":"Tempe AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2025-10-04 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"erica-barn-on-higley-eve","name":"Erica (Barn on Higley Event","phone":"","email":"","date":"2025-09-20","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Gilbert AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"ginger-walton","name":"Ginger Walton","phone":"","email":"","date":"2025-09-27","start":null,"end":null,"durationHrs":2.0,"status":"Cancelled","boothType":"Both","prints":"No","price":900.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"East Mesa","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"kylie","name":"Kylie","phone":"","email":"","date":"2025-09-27","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"lynn-walsh","name":"Lynn Walsh","phone":"","email":"","date":"2025-10-10","start":"10:00","end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"mary-h","name":"Mary H","phone":"","email":"","date":"2025-10-17","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"","depositAmount":null,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2025-06-09 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"mom","name":"Mom","phone":"","email":"","date":"2025-10-24","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":null,"depositStatus":"Not Required","depositAmount":0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2025-06-08 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"shannon-chumbley","name":"Shannon Chumbley","phone":"","email":"","date":"2025-11-08","start":null,"end":null,"durationHrs":3.0,"status":"Cancelled","boothType":"White","prints":"Yes","price":600.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Phoenix AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"erica-barn-on-higley-eve-2","name":"Erica (Barn on Higley Event","phone":"","email":"","date":"2025-11-15","start":null,"end":null,"durationHrs":null,"status":"Cancelled","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Gilbert AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"nathaniel","name":"Nathaniel","phone":"","email":"","date":"2025-11-15","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"360","prints":"","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Queen Creek Az","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"lollie-kuhl-sydney-o-set","name":"Lollie Kuhl (Sydney O set up)","phone":"","email":"","date":"2025-12-04","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Not Required","depositAmount":0,"location":"Phoenix","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2025-05-08 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"chantel","name":"Chantel","phone":"","email":"","date":"2025-12-13","start":"17:30","end":"20:30","durationHrs":3.0,"status":"Complete","boothType":"White","prints":"No","price":300.0,"depositStatus":"Not Required","depositAmount":0,"location":"Chandler","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"savannah","name":"Savannah","phone":"","email":"","date":"2025-12-30","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"rhonda","name":"Rhonda","phone":"","email":"","date":"2025-12-31","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Peoria","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2025-07-10 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"desiree-thomas","name":"Desiree Thomas","phone":"","email":"","date":"2026-01-17","start":"06:30","end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":625.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Mesa AZ","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Need to get scrap book for the event.","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"luisa-barn-on-higley-eve","name":"Luisa (Barn on Higley Event)","phone":"","email":"","date":"2026-01-24","start":"04:30","end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"The Barn on Higley","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"kylie-2","name":"Kylie 2","phone":"","email":"","date":"2026-02-13","start":null,"end":null,"durationHrs":2.0,"status":"Complete","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Not Required","depositAmount":0,"location":"Phoenix","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2026-06-08 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"sierra-owen","name":"Sierra Owen","phone":"","email":"","date":"2026-02-20","start":null,"end":null,"durationHrs":3.0,"status":"Complete","boothType":"White","prints":"No","price":400.0,"depositStatus":"Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Original time entry was a date value: 2026-06-09 00:00:00 (needs re-entry)","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"sasha-santamorena","name":"Sasha Santamorena","phone":"","email":"","date":"2026-03-07","start":"16:30","end":"23:30","durationHrs":7.0,"status":"Reserved","boothType":"White","prints":"No","price":750.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Gilbert","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"(Updated 3/3)","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"quince-barn-on-higley-ev","name":"Quince (Barn on Higley Event)","phone":"","email":"","date":"2026-03-14","start":null,"end":null,"durationHrs":null,"status":"Reserved","boothType":"White","prints":"Yes","price":500.0,"depositStatus":"Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"candice-kinchelow","name":"Candice Kinchelow","phone":"","email":"","date":"2026-03-20","start":null,"end":null,"durationHrs":3.0,"status":"Reserved","boothType":"White","prints":"Yes","price":750.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"melly-lianna-s-quince","name":"Melly (Lianna's Quince)","phone":"","email":"","date":"2026-05-02","start":"19:00","end":"22:00","durationHrs":null,"status":"Reserved","boothType":"White","prints":"Yes","price":400.0,"depositStatus":"Sent","depositAmount":0,"location":"125 E Commonwealth Ave, Chandler AZ","staff":"","equipment":"White backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"eileen-sweet-16","name":"Eileen (Sweet 16)","phone":"","email":"","date":"2026-05-09","start":"18:30","end":"21:30","durationHrs":3.0,"status":"Reserved","boothType":"White","prints":"Yes","price":450.0,"depositStatus":"Sent","depositAmount":100.0,"location":"Guild of The Vale 200 N Macdonald MEsa AZ 85201","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"andi-grad-party","name":"Andi (Grad Party)","phone":"","email":"","date":"2026-05-23","start":"17:30","end":"20:30","durationHrs":3.0,"status":"Reserved","boothType":"White","prints":"No","price":300.0,"depositStatus":"Sent","depositAmount":100.0,"location":"4186 S Springs Dr. Chandler","staff":"","equipment":"White backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"olivia-birthday-party","name":"Olivia (Birthday party)","phone":"","email":"","date":"2026-06-09","start":"18:30","end":"20:00","durationHrs":1.5,"status":"","boothType":"White","prints":"Yes","price":300.0,"depositStatus":"","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"andi-baby-shower","name":"Andi (baby shower)","phone":"","email":"","date":"2026-06-13","start":"17:30","end":"20:30","durationHrs":3.0,"status":"","boothType":"White","prints":"No","price":300.0,"depositStatus":"","depositAmount":null,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"jackie-duarte","name":"Jackie Duarte","phone":"","email":"","date":"2026-06-27","start":"16:30","end":"19:30","durationHrs":3.0,"status":"","boothType":"White","prints":"Yes","price":550.0,"depositStatus":"","depositAmount":null,"location":"Peoria","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"noelia-wedding","name":"Noelia ( Wedding)","phone":"","email":"","date":"2026-07-31","start":"19:30","end":"22:30","durationHrs":3.0,"status":"Reserved","boothType":"White","prints":"Yes","price":450.0,"depositStatus":"Sent","depositAmount":100.0,"location":"4000 E Palm St, Mesa, AZ 85215","staff":"","equipment":"Gold backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":false,"addedToCalendar":false,"bookedBy":""},{"id":"allie","name":"Allie","phone":"","email":"","date":"2026-09-05","start":"19:30","end":"22:30","durationHrs":null,"status":"","boothType":"","prints":"","price":null,"depositStatus":"","depositAmount":null,"location":"","staff":"","equipment":"Gold backdrop","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"nancy","name":"Nancy","phone":"","email":"","date":"2026-09-13","start":"18:30","end":"21:30","durationHrs":3.0,"status":"","boothType":"White","prints":"No","price":300.0,"depositStatus":"Not Sent","depositAmount":100.0,"location":"Gilbert","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"","needsReview":true,"addedToCalendar":false,"bookedBy":""},{"id":"jennifer-r","name":"Jennifer R","phone":"","email":"","date":null,"start":null,"end":null,"durationHrs":null,"status":"Complete","boothType":"White","prints":"Yes","price":null,"depositStatus":"Not Sent","depositAmount":100.0,"location":"","staff":"","equipment":"","setupTime":"","teardownTime":"","travelDistance":"","notes":"Multi-day event, original date entry: 12/20-21; Original price entry: $400/$800","needsReview":true,"addedToCalendar":false,"bookedBy":""}]</script>
+<script id="app-script">
+(function(){
+  "use strict";
+
+  var openRowId = null;
+  var filter = "all";
+  var searchText = "";
+  var renderPending = false;
+
+  // ---------- initial data (fallback paint until Supabase responds) ----------
+  var events = [];
+  try{
+    var seedEl = document.getElementById("event-data");
+    events = seedEl ? (JSON.parse(seedEl.textContent) || []) : [];
+  }catch(e){ console.error("failed to parse seed event data", e); events = []; }
+
+  // ---------- Supabase-backed persistence ----------
+  var supabaseClient = null;
+  var canWrite = false;
+  var PASSWORD_KEY = "twistBoardEditPassword";
+  var saveTimers = {}; // id -> timeout handle
+
+  var listEl = document.getElementById("list");
+  var statsEl = document.getElementById("stats");
+  var countEl = document.getElementById("countLine");
+  var addBtn = document.getElementById("addBtn");
+  var lockBtn = document.getElementById("lockBtn");
+
+  function showWriteBanner(show, message){
+    if(message) document.getElementById("writeBannerText").textContent = message;
+    document.getElementById("writeBanner").classList.toggle("show", !!show);
+  }
+  function setWriteState(unlocked){
+    canWrite = unlocked;
+    if(addBtn) addBtn.disabled = !unlocked;
+    if(lockBtn) lockBtn.textContent = unlocked ? "🔓 Editing unlocked" : "🔒 Unlock editing";
+    if(unlocked) showWriteBanner(false);
+  }
+  function getPassword(){
+    try{ return sessionStorage.getItem(PASSWORD_KEY) || ""; }catch(e){ return ""; }
+  }
+  function setPassword(pw){
+    try{ sessionStorage.setItem(PASSWORD_KEY, pw); }catch(e){}
+  }
+  function clearPassword(){
+    try{ sessionStorage.removeItem(PASSWORD_KEY); }catch(e){}
+  }
+
+  lockBtn.addEventListener("click", function(){
+    if(canWrite){ return; } // already unlocked this tab
+    var pw = window.prompt("Enter the shared edit password:");
+    if(pw == null || pw === "") return;
+    setPassword(pw);
+    setWriteState(true);
+    showWriteBanner(true, "Editing unlocked — changes will save as you make them.");
+  });
+
+  // ---------- helpers ----------
+  function todayISO(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  var TODAY = todayISO();
+
+  function parseDate(iso){
+    if(!iso) return null;
+    var p = iso.split("-");
+    if(p.length!==3) return null;
+    return new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+  }
+  function fmtDate(iso){
+    var d = parseDate(iso);
+    if(!d) return null;
+    return { d: (d.getMonth()+1)+"/"+d.getDate()+"/"+String(d.getFullYear()).slice(2), w: d.toLocaleDateString(undefined,{weekday:"short"}) };
+  }
+  function to12h(hhmm){
+    if(!hhmm) return "";
+    var parts = hhmm.split(":"); var h = Number(parts[0]), m = parts[1];
+    var ap = h>=12 ? "pm":"am"; var h12 = h%12; if(h12===0) h12=12;
+    return h12+":"+m+ap;
+  }
+  function timeRange(ev){
+    if(ev.start && ev.end) return to12h(ev.start)+" – "+to12h(ev.end);
+    if(ev.start) return to12h(ev.start)+" start";
+    return "";
+  }
+  function durationOf(ev){
+    if(ev.start && ev.end){
+      var s = ev.start.split(":"), e = ev.end.split(":");
+      var sm = Number(s[0])*60+Number(s[1]), em = Number(e[0])*60+Number(e[1]);
+      if(em < sm) em += 24*60;
+      return Math.round(((em-sm)/60)*100)/100;
+    }
+    if(typeof ev.durationHrs === "number") return ev.durationHrs;
+    return null;
+  }
+  function money(n){
+    if(typeof n !== "number" || isNaN(n)) return "—";
+    return "$" + n.toLocaleString(undefined,{minimumFractionDigits:0, maximumFractionDigits:2});
+  }
+  function balanceOf(ev){
+    if(typeof ev.price === "number" && typeof ev.depositAmount === "number") return ev.price - ev.depositAmount;
+    return null;
+  }
+  function isOverdue(ev){
+    return !!ev.date && ev.date < TODAY && (ev.status === "Reserved" || ev.status === "Inquiry");
+  }
+  function statusClass(s){
+    if(!s) return "blank";
+    return s.toLowerCase();
+  }
+  function esc(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function makeId(){
+    return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+
+  // ---------- saving (per-event upserts against Supabase, password-checked server-side) ----------
+  function handleSaveError(err, context){
+    console.error(context, err);
+    var msg = (err && err.message) || "";
+    if(err && (err.code === "28000" || /invalid password/i.test(msg))){
+      clearPassword();
+      setWriteState(false);
+      showWriteBanner(true, "Incorrect edit password — click \"Unlock editing\" to try again.");
+      return;
+    }
+    showWriteBanner(true, "Save failed — check your connection and try again.");
+  }
+  function doSaveEvent(id){
+    if(!canWrite || !supabaseClient) return;
+    var ev = events.find(function(x){ return x.id === id; });
+    if(!ev) return; // deleted locally already
+    supabaseClient.rpc("upsert_event", { p_password: getPassword(), p_id: id, p_data: ev })
+      .then(function(res){ if(res.error) handleSaveError(res.error, "save failed"); });
+  }
+  function scheduleSave(id){
+    if(!canWrite) return;
+    if(saveTimers[id]) clearTimeout(saveTimers[id]);
+    saveTimers[id] = setTimeout(function(){ saveTimers[id] = null; doSaveEvent(id); }, 1500);
+  }
+  function flushSave(id){
+    if(!canWrite) return;
+    if(saveTimers[id]){ clearTimeout(saveTimers[id]); saveTimers[id] = null; }
+    doSaveEvent(id);
+  }
+  function doDeleteEvent(id){
+    if(!canWrite || !supabaseClient) return;
+    supabaseClient.rpc("delete_event", { p_password: getPassword(), p_id: id })
+      .then(function(res){ if(res.error) handleSaveError(res.error, "delete failed"); });
+  }
+
+  // ---------- render scheduling (don't clobber a field the user is actively editing) ----------
+  function isEditing(){
+    var ae = document.activeElement;
+    if(!ae || !listEl.contains(ae)) return false;
+    var tag = ae.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || (tag === "SELECT" && ae.dataset.commitOnBlurOnly === "1");
+  }
+  function scheduleRender(){
+    if(isEditing()){ renderPending = true; return; }
+    renderPending = false;
+    render();
+  }
+  listEl.addEventListener("focusout", function(){
+    setTimeout(function(){ if(renderPending && !isEditing()) render(); }, 30);
+  });
+
+  // ---------- filtering / sorting ----------
+  function visibleEvents(){
+    var q = searchText.trim().toLowerCase();
+    var out = events.filter(function(ev){
+      if(filter === "overdue" && !isOverdue(ev)) return false;
+      if(filter === "review" && !ev.needsReview) return false;
+      if(filter !== "all" && filter !== "overdue" && filter !== "review" && ev.status !== filter) return false;
+      if(q){
+        var hay = [ev.name, ev.location, ev.notes, ev.equipment].join(" ").toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    out.sort(function(a,b){
+      // Under the "All" chip, lead with what's ahead of you (soonest first)
+      // and put anything already past — done, cancelled, or overdue-and-stale
+      // alike — in a second group after it (most recently past first, so it
+      // reads like a history list). Any other chip is a plain date sort.
+      if(filter === "all"){
+        var aFuture = !!a.date && a.date >= TODAY;
+        var bFuture = !!b.date && b.date >= TODAY;
+        if(aFuture !== bFuture) return aFuture ? -1 : 1;
+        if(aFuture){
+          if(!a.date) return 1;
+          if(!b.date) return -1;
+          return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+        }
+        if(!a.date && !b.date) return 0;
+        if(!a.date) return 1;
+        if(!b.date) return -1;
+        return a.date > b.date ? -1 : a.date < b.date ? 1 : 0;
+      }
+      if(!a.date && !b.date) return 0;
+      if(!a.date) return 1;
+      if(!b.date) return -1;
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+    });
+    return out;
+  }
+
+  // ---------- stat tiles ----------
+  function renderStats(){
+    var total = events.length;
+    var upcoming = events.filter(function(e){ return e.status==="Reserved" && (!e.date || e.date >= TODAY); });
+    var upcomingRevenue = upcoming.reduce(function(s,e){ return s + (typeof e.price==="number"? e.price:0); }, 0);
+    var review = events.filter(function(e){ return e.needsReview; }).length;
+    var overdue = events.filter(isOverdue).length;
+    var bookedRevenue = events.filter(function(e){ return e.status==="Complete" || e.status==="Reserved"; })
+                               .reduce(function(s,e){ return s + (typeof e.price==="number"? e.price:0); }, 0);
+
+    var tiles = [
+      { n: total, l: "Total events" },
+      { n: upcoming.length, l: "Upcoming reserved · " + money(upcomingRevenue) },
+      { n: money(bookedRevenue), l: "Revenue booked" },
+      { n: overdue, l: "Overdue status", warn: true },
+      { n: review, l: "Needs review", flag: true },
+    ];
+    statsEl.innerHTML = tiles.map(function(t){
+      return '<div class="stat'+(t.warn?' warn':'')+(t.flag?' flag':'')+'"><div class="n">'+esc(t.n)+'</div><div class="l">'+esc(t.l)+'</div></div>';
+    }).join("");
+  }
+
+  // ---------- row / detail markup ----------
+  var STATUS_OPTIONS = ["Inquiry","Reserved","Complete","Cancelled"];
+  var BOOTH_OPTIONS = ["White","360","Both"];
+  var YESNO = ["Yes","No"];
+  var DEPOSIT_OPTIONS = ["Not Sent","Sent","Received","Not Required"];
+
+  function statusSelectHtml(ev){
+    var cls = statusClass(ev.status);
+    var opts = [""].concat(STATUS_OPTIONS).map(function(o){
+      return '<option value="'+o+'"'+(ev.status===o?' selected':'')+'>'+(o||"—")+'</option>';
+    }).join("");
+    return '<select class="status-select '+cls+'" data-id="'+ev.id+'" data-field="status" onclick="event.stopPropagation()">'+opts+'</select>';
+  }
+
+  function rowHtml(ev){
+    var d = fmtDate(ev.date);
+    var overdue = isOverdue(ev);
+    var stCls = overdue ? "is-overdue" : "status-"+statusClass(ev.status);
+    var bal = balanceOf(ev);
+    var dateCell = d
+      ? '<div class="cell date-cell"><div class="d">'+d.d+'</div><div class="w">'+d.w+'</div>'+(overdue?'<div class="overdue-tag">Overdue</div>':'')+'</div>'
+      : '<div class="cell date-cell no-date">no date</div>';
+    return (
+      '<div class="event '+stCls+(openRowId===ev.id?' open':'')+'" data-id="'+ev.id+'">'+
+        '<div class="row" data-id="'+ev.id+'">'+
+          dateCell+
+          '<div class="cell name-cell">'+esc(ev.name||"(no name)")+(ev.location?'<span class="loc">'+esc(ev.location)+'</span>':'')+'</div>'+
+          '<div class="cell time-cell">'+esc(timeRange(ev))+'</div>'+
+          '<div class="cell status-cell">'+statusSelectHtml(ev)+'</div>'+
+          '<div class="cell booth-cell"><span class="pill blank">'+esc(ev.boothType||"—")+'</span></div>'+
+          '<div class="cell money-cell price-cell">'+money(ev.price)+'</div>'+
+          '<div class="cell deposit-cell"><div class="dep-amt">'+money(ev.depositAmount)+'</div><span class="pill blank">'+esc(ev.depositStatus||"—")+'</span></div>'+
+          '<div class="cell flag-cell">'+(ev.needsReview?'<span class="flag-dot" title="Needs review"></span>':'')+'</div>'+
+          '<div class="cell chev">›</div>'+
+        '</div>'+
+        '<div class="detail">'+detailHtml(ev)+'</div>'+
+      '</div>'
+    );
+  }
+
+  function field(label, inner, wide){
+    return '<div class="field'+(wide?' wide':'')+'">'+
+      '<label>'+esc(label)+'</label>'+inner+
+    '</div>';
+  }
+  function textInput(id, f, val, type){
+    return '<input type="'+(type||"text")+'" data-id="'+id+'" data-field="'+f+'" value="'+esc(val==null?"":val)+'">';
+  }
+  function selectInput(id, f, val, options){
+    var opts = [""].concat(options).map(function(o){ return '<option value="'+o+'"'+(val===o?' selected':'')+'>'+(o||"—")+'</option>'; }).join("");
+    return '<select data-id="'+id+'" data-field="'+f+'">'+opts+'</select>';
+  }
+
+  // ---------- Google Calendar quick-add ----------
+  // No backend / OAuth here — instead we build Google's own "quick add"
+  // URL with every field pre-filled. Opening it drops the viewer straight
+  // onto Google Calendar's save screen with nothing left to type; they
+  // still click Save there once, since only Google itself can write to
+  // somebody's calendar.
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function addDaysISO(iso, days){
+    var d = parseDate(iso);
+    if(!d) return iso;
+    d.setDate(d.getDate()+days);
+    return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());
+  }
+  function gcalUrl(ev){
+    if(!ev || !ev.date) return null;
+    var dCompact = ev.date.replace(/-/g,"");
+    var datesParam;
+    if(ev.start){
+      var startStr = dCompact + "T" + ev.start.replace(":","") + "00";
+      var endTime = ev.end || ev.start;
+      var endStr = dCompact + "T" + endTime.replace(":","") + "00";
+      datesParam = startStr + "/" + endStr;
+    } else {
+      var endDate = addDaysISO(ev.date, 1).replace(/-/g,"");
+      datesParam = dCompact + "/" + endDate;
+    }
+    var detailParts = [];
+    if(ev.boothType) detailParts.push("Booth: " + ev.boothType);
+    if(typeof ev.price === "number") detailParts.push("Price: " + money(ev.price));
+    if(ev.bookedBy) detailParts.push("Booked by: " + ev.bookedBy);
+    if(ev.phone) detailParts.push("Phone: " + ev.phone);
+    if(ev.notes) detailParts.push(ev.notes);
+    var params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: "Twist Photo Booth – " + (ev.name || "Event"),
+      dates: datesParam,
+      details: detailParts.join("\n"),
+      location: ev.location || ""
+    });
+    return "https://calendar.google.com/calendar/render?" + params.toString();
+  }
+  function gcalLinkHtml(ev){
+    var url = gcalUrl(ev);
+    if(!url) return '<span class="gcal-link gcal-link-disabled">Add a date to enable Google Calendar</span>';
+    return '<a class="gcal-link" href="'+esc(url)+'" target="_blank" rel="noopener">Open in Google Calendar ↗</a>';
+  }
+
+  function detailHtml(ev){
+    var dur = durationOf(ev);
+    var bal = balanceOf(ev);
+    var html = '<div class="detail-grid">'+
+      field("Client phone", textInput(ev.id,"phone",ev.phone,"tel")) +
+      field("Client email", textInput(ev.id,"email",ev.email,"email")) +
+      field("Booked by", textInput(ev.id,"bookedBy",ev.bookedBy)) +
+      field("Event date", textInput(ev.id,"date",ev.date,"date")) +
+      field("Start time", textInput(ev.id,"start",ev.start,"time")) +
+      field("End time", textInput(ev.id,"end",ev.end,"time")) +
+      field("Duration (auto if start+end)", '<input type="number" step="0.25" data-id="'+ev.id+'" data-field="durationHrs" value="'+(dur==null?"":dur)+'" '+(ev.start&&ev.end?"disabled":"")+'>') +
+      field("Booth type", selectInput(ev.id,"boothType",ev.boothType,BOOTH_OPTIONS)) +
+      field("Prints included", selectInput(ev.id,"prints",ev.prints,YESNO)) +
+      field("Package price", '<input type="number" step="1" data-id="'+ev.id+'" data-field="price" value="'+(ev.price==null?"":ev.price)+'">') +
+      field("Deposit amount", '<input type="number" step="1" data-id="'+ev.id+'" data-field="depositAmount" value="'+(ev.depositAmount==null?"":ev.depositAmount)+'">') +
+      field("Deposit status", selectInput(ev.id,"depositStatus",ev.depositStatus,DEPOSIT_OPTIONS)) +
+      field("Balance due", '<input type="text" value="'+(bal==null?"—":money(bal))+'" disabled>') +
+      field("Venue / location", textInput(ev.id,"location",ev.location), true) +
+      field("Staff assigned", textInput(ev.id,"staff",ev.staff)) +
+      field("Equipment / backdrop", textInput(ev.id,"equipment",ev.equipment)) +
+      field("Travel distance", textInput(ev.id,"travelDistance",ev.travelDistance)) +
+      field("Notes", '<textarea data-id="'+ev.id+'" data-field="notes">'+esc(ev.notes)+'</textarea>', true) +
+    '</div>'+
+    '<div class="toggle-row">'+
+      '<label class="toggle"><input type="checkbox" data-id="'+ev.id+'" data-field="needsReview" '+(ev.needsReview?"checked":"")+'> Needs review</label>'+
+      '<label class="toggle"><input type="checkbox" data-id="'+ev.id+'" data-field="addedToCalendar" '+(ev.addedToCalendar?"checked":"")+'> Added to Google Calendar</label>'+
+      gcalLinkHtml(ev) +
+    '</div>'+
+    '<div class="detail-foot">'+
+      '<span class="save-hint">Changes save automatically.</span>'+
+      '<button class="delete-btn" data-delete="'+ev.id+'" type="button">Delete event</button>'+
+    '</div>';
+    return html;
+  }
+
+  // ---------- main render ----------
+  function render(){
+    renderStats();
+    var vis = visibleEvents();
+    countEl.textContent = vis.length + " of " + events.length + " events shown";
+    if(vis.length === 0){
+      listEl.innerHTML = '<div class="empty">No events match. Try a different filter or search.</div>';
+      return;
+    }
+    if(filter === "all"){
+      listEl.innerHTML = renderGrouped(vis);
+    } else {
+      listEl.innerHTML = vis.map(rowHtml).join("");
+    }
+  }
+
+  function renderGrouped(vis){
+    var html = "";
+    var seenPast = false;
+    for(var i=0; i<vis.length; i++){
+      var ev = vis[i];
+      var isFuture = !!ev.date && ev.date >= TODAY;
+      if(!isFuture && !seenPast){
+        seenPast = true;
+        html += '<div class="group-divider">Past &amp; overdue</div>';
+      }
+      html += rowHtml(ev);
+    }
+    return html;
+  }
+
+  // ---------- events (delegated) ----------
+  listEl.addEventListener("click", function(e){
+    var del = e.target.closest("[data-delete]");
+    if(del){
+      e.stopPropagation();
+      if(!canWrite) return;
+      if(confirm("Delete this event? This can't be undone.")){
+        var id = del.getAttribute("data-delete");
+        events = events.filter(function(x){ return x.id !== id; });
+        if(openRowId === id) openRowId = null;
+        render();
+        doDeleteEvent(id);
+      }
+      return;
+    }
+    var row = e.target.closest(".row");
+    if(row){
+      var id2 = row.getAttribute("data-id");
+      openRowId = (openRowId === id2) ? null : id2;
+      render();
+    }
+  });
+
+  listEl.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.dataset && t.dataset.field){
+      // Native date/time inputs can fire "change" while a segment (e.g. the
+      // year) is still mid-edit. Only commit once the value is empty
+      // (cleared) or a complete, well-formed date/time — otherwise bail
+      // out without touching state or the DOM, so re-rendering never
+      // yanks focus out from under a keystroke still in progress.
+      if(t.type === "date" && t.value !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(t.value)) return;
+      if(t.type === "time" && t.value !== "" && !/^\d{2}:\d{2}$/.test(t.value)) return;
+
+      var id = t.dataset.id, f = t.dataset.field, v;
+      if(t.type === "checkbox") v = t.checked;
+      else if(t.type === "number") v = t.value === "" ? null : Number(t.value);
+      else v = t.value === "" ? null : t.value;
+      // reflect locally for instant feedback, then persist
+      var ev = events.find(function(x){ return x.id === id; });
+      if(ev) ev[f] = v;
+      if(!canWrite){
+        showWriteBanner(true, "Read-only — click \"Unlock editing\" to save changes.");
+      } else {
+        scheduleSave(id);
+      }
+      // Selects and checkboxes are single, atomic picks — safe to redraw
+      // right away. Date/time/number/text fields are not: redraw only
+      // once the user is done (scheduleRender defers while still focused).
+      if(t.tagName === "SELECT" || t.type === "checkbox") render();
+      else scheduleRender();
+    }
+  });
+  listEl.addEventListener("blur", function(e){
+    var t = e.target;
+    if(t.matches && t.matches("input[type=text], input[type=tel], input[type=email], input[type=number], input[type=time], textarea")){
+      if(t.dataset && t.dataset.field){
+        var id = t.dataset.id, f = t.dataset.field;
+        var v = t.type === "number" ? (t.value === "" ? null : Number(t.value)) : (t.value === "" ? "" : t.value);
+        var ev = events.find(function(x){ return x.id === id; });
+        if(ev) ev[f] = v;
+        if(canWrite) flushSave(id);
+      }
+    }
+  }, true);
+
+  // ---------- controls ----------
+  document.getElementById("search").addEventListener("input", function(e){
+    searchText = e.target.value; render();
+  });
+  document.getElementById("statusChips").addEventListener("click", function(e){
+    var chip = e.target.closest(".chip");
+    if(!chip) return;
+    filter = chip.getAttribute("data-filter");
+    Array.prototype.forEach.call(document.querySelectorAll("#statusChips .chip"), function(c){
+      c.setAttribute("aria-pressed", c === chip ? "true" : "false");
+    });
+    render();
+  });
+
+  // ---------- add-event modal ----------
+  var backdrop = document.getElementById("modalBackdrop");
+  var modalGrid = document.getElementById("modalGrid");
+  function newEventFormHtml(){
+    return field("Client name", '<input type="text" id="m_name">', true) +
+      field("Booked by", '<input type="text" id="m_bookedBy" placeholder="Who took this booking">', true) +
+      field("Event date", '<input type="date" id="m_date">') +
+      field("Start time", '<input type="time" id="m_start">') +
+      field("End time", '<input type="time" id="m_end">') +
+      field("Status", selectInput("m","status","",STATUS_OPTIONS)) +
+      field("Booth type", selectInput("m","boothType","",BOOTH_OPTIONS)) +
+      field("Venue / location", '<input type="text" id="m_location">', true) +
+      field("Package price", '<input type="number" id="m_price">') +
+      field("Deposit amount", '<input type="number" id="m_deposit">');
+  }
+  document.getElementById("addBtn").addEventListener("click", function(){
+    if(!canWrite) return;
+    modalGrid.innerHTML = newEventFormHtml();
+    backdrop.classList.add("open");
+    document.getElementById("m_name").focus();
+  });
+  document.getElementById("modalCancel").addEventListener("click", function(){ backdrop.classList.remove("open"); });
+  backdrop.addEventListener("click", function(e){ if(e.target === backdrop) backdrop.classList.remove("open"); });
+  document.getElementById("modalSave").addEventListener("click", function(){
+    if(!canWrite){ backdrop.classList.remove("open"); return; }
+    var name = document.getElementById("m_name").value.trim();
+    if(!name){ document.getElementById("m_name").focus(); return; }
+    var statusSel = modalGrid.querySelector('[data-field="status"]');
+    var boothSel = modalGrid.querySelector('[data-field="boothType"]');
+    var newId = makeId();
+    var data = {
+      id: newId,
+      name: name,
+      phone: "", email: "",
+      bookedBy: document.getElementById("m_bookedBy").value.trim(),
+      date: document.getElementById("m_date").value || null,
+      start: document.getElementById("m_start").value || null,
+      end: document.getElementById("m_end").value || null,
+      durationHrs: null,
+      status: statusSel ? statusSel.value : "",
+      boothType: boothSel ? boothSel.value : "",
+      prints: "",
+      price: document.getElementById("m_price").value === "" ? null : Number(document.getElementById("m_price").value),
+      depositStatus: "",
+      depositAmount: document.getElementById("m_deposit").value === "" ? null : Number(document.getElementById("m_deposit").value),
+      location: document.getElementById("m_location").value || "",
+      staff: "", equipment: "", setupTime: "", teardownTime: "", travelDistance: "",
+      notes: "", needsReview: false, addedToCalendar: false,
+    };
+    events.push(data);
+    openRowId = newId;
+    backdrop.classList.remove("open");
+    render();
+    doSaveEvent(newId);
+    // Pop Google's own pre-filled "save this event" screen for the new
+    // booking. Has to happen synchronously in this click handler or
+    // browsers block it as an unrequested popup.
+    var newEventGcalUrl = gcalUrl(data);
+    if(newEventGcalUrl) window.open(newEventGcalUrl, "_blank", "noopener");
+  });
+
+  // ---------- realtime sync from other viewers ----------
+  function applyRemoteChange(payload){
+    if(payload.eventType === "DELETE"){
+      var oldId = payload.old && payload.old.id;
+      if(!oldId) return;
+      events = events.filter(function(x){ return x.id !== oldId; });
+      if(openRowId === oldId) openRowId = null;
+    } else {
+      var row = payload.new;
+      if(!row || !row.data) return;
+      var idx = events.findIndex(function(x){ return x.id === row.id; });
+      if(idx === -1) events.push(row.data);
+      else events[idx] = row.data;
+    }
+    scheduleRender();
+  }
+
+  // ---------- boot ----------
+  render(); // draw immediately from the embedded seed data so the page never looks broken
+
+  (function boot(){
+    if(!window.supabase || !window.SUPABASE_URL || window.SUPABASE_URL.indexOf("YOUR_SUPABASE") === 0){
+      showWriteBanner(true, "This page isn't connected to a database yet — showing the last saved snapshot.");
+      return;
+    }
+    supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+    supabaseClient.from("events").select("id,data").then(function(res){
+      if(res.error){ console.error("failed to load events", res.error); return; }
+      if(res.data && res.data.length){
+        events = res.data.map(function(row){ return row.data; });
+        scheduleRender();
+      }
+    });
+
+    supabaseClient
+      .channel("events-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, applyRemoteChange)
+      .subscribe();
+  })();
+})();
+</script>
+</body>
+</html>
