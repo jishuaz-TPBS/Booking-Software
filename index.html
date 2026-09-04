@@ -70,14 +70,13 @@
   .brand h1{font-size:23px; font-weight:600; letter-spacing:-0.01em;}
   .brand .sub{color:var(--muted); font-size:12.5px; letter-spacing:.03em; text-transform:uppercase; margin-top:2px;}
   .topbar-actions{display:flex; align-items:center; gap:8px;}
-  .add-btn, .lock-btn{
+  .add-btn{
     background:var(--accent); color:var(--accent-contrast); border:none; padding:10px 18px; border-radius:8px; font-weight:600;
     cursor:pointer; box-shadow:var(--shadow); transition:filter .15s ease, transform .15s ease;
   }
-  .lock-btn{background:var(--surface); color:var(--ink); border:1px solid var(--line); box-shadow:none;}
-  .add-btn:hover, .lock-btn:hover{filter:brightness(1.06); transform:translateY(-1px);}
+  .add-btn:hover{filter:brightness(1.06); transform:translateY(-1px);}
   .add-btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
-  .add-btn:focus-visible, .lock-btn:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible{
+  .add-btn:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible{
     outline:2px solid var(--accent); outline-offset:2px;
   }
 
@@ -258,13 +257,12 @@
       </div>
     </div>
     <div class="topbar-actions">
-      <button class="lock-btn" id="lockBtn" type="button">🔒 Unlock editing</button>
       <button class="add-btn" id="addBtn" type="button" disabled>+ Add event</button>
     </div>
   </div>
 
   <div class="status-banner" id="writeBanner">
-    <span id="writeBannerText">Read-only — click "Unlock editing" and enter the shared password to make changes.</span>
+    <span id="writeBannerText">This page isn't connected to a database yet.</span>
   </div>
 
   <div class="stats" id="stats"></div>
@@ -336,45 +334,27 @@
   }catch(e){ console.error("failed to parse seed event data", e); events = []; }
 
   // ---------- Supabase-backed persistence ----------
+  // Anyone with the page link can view and edit — there is no password
+  // gate. Access control lives entirely in Supabase's RLS policies on
+  // the `events` table (open read/write to anon), not in this script.
   var supabaseClient = null;
-  var canWrite = false;
-  var PASSWORD_KEY = "twistBoardEditPassword";
+  var canWrite = false; // becomes true once Supabase connects successfully
   var saveTimers = {}; // id -> timeout handle
 
   var listEl = document.getElementById("list");
   var statsEl = document.getElementById("stats");
   var countEl = document.getElementById("countLine");
   var addBtn = document.getElementById("addBtn");
-  var lockBtn = document.getElementById("lockBtn");
 
   function showWriteBanner(show, message){
     if(message) document.getElementById("writeBannerText").textContent = message;
     document.getElementById("writeBanner").classList.toggle("show", !!show);
   }
-  function setWriteState(unlocked){
-    canWrite = unlocked;
-    if(addBtn) addBtn.disabled = !unlocked;
-    if(lockBtn) lockBtn.textContent = unlocked ? "🔓 Editing unlocked" : "🔒 Unlock editing";
-    if(unlocked) showWriteBanner(false);
+  function setWriteState(connected){
+    canWrite = connected;
+    if(addBtn) addBtn.disabled = !connected;
+    showWriteBanner(!connected);
   }
-  function getPassword(){
-    try{ return sessionStorage.getItem(PASSWORD_KEY) || ""; }catch(e){ return ""; }
-  }
-  function setPassword(pw){
-    try{ sessionStorage.setItem(PASSWORD_KEY, pw); }catch(e){}
-  }
-  function clearPassword(){
-    try{ sessionStorage.removeItem(PASSWORD_KEY); }catch(e){}
-  }
-
-  lockBtn.addEventListener("click", function(){
-    if(canWrite){ return; } // already unlocked this tab
-    var pw = window.prompt("Enter the shared edit password:");
-    if(pw == null || pw === "") return;
-    setPassword(pw);
-    setWriteState(true);
-    showWriteBanner(true, "Editing unlocked — changes will save as you make them.");
-  });
 
   // ---------- helpers ----------
   function todayISO(){
@@ -439,23 +419,16 @@
     return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
   }
 
-  // ---------- saving (per-event upserts against Supabase, password-checked server-side) ----------
+  // ---------- saving (direct per-event upserts against Supabase; open write access) ----------
   function handleSaveError(err, context){
     console.error(context, err);
-    var msg = (err && err.message) || "";
-    if(err && (err.code === "28000" || /invalid password/i.test(msg))){
-      clearPassword();
-      setWriteState(false);
-      showWriteBanner(true, "Incorrect edit password — click \"Unlock editing\" to try again.");
-      return;
-    }
     showWriteBanner(true, "Save failed — check your connection and try again.");
   }
   function doSaveEvent(id){
     if(!canWrite || !supabaseClient) return;
     var ev = events.find(function(x){ return x.id === id; });
     if(!ev) return; // deleted locally already
-    supabaseClient.rpc("upsert_event", { p_password: getPassword(), p_id: id, p_data: ev })
+    supabaseClient.from("events").upsert({ id: id, data: ev })
       .then(function(res){ if(res.error) handleSaveError(res.error, "save failed"); });
   }
   function scheduleSave(id){
@@ -470,7 +443,7 @@
   }
   function doDeleteEvent(id){
     if(!canWrite || !supabaseClient) return;
-    supabaseClient.rpc("delete_event", { p_password: getPassword(), p_id: id })
+    supabaseClient.from("events").delete().eq("id", id)
       .then(function(res){ if(res.error) handleSaveError(res.error, "delete failed"); });
   }
 
@@ -759,11 +732,7 @@
       // reflect locally for instant feedback, then persist
       var ev = events.find(function(x){ return x.id === id; });
       if(ev) ev[f] = v;
-      if(!canWrite){
-        showWriteBanner(true, "Read-only — click \"Unlock editing\" to save changes.");
-      } else {
-        scheduleSave(id);
-      }
+      if(canWrite) scheduleSave(id);
       // Selects and checkboxes are single, atomic picks — safe to redraw
       // right away. Date/time/number/text fields are not: redraw only
       // once the user is done (scheduleRender defers while still focused).
@@ -887,7 +856,8 @@
     supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
     supabaseClient.from("events").select("id,data").then(function(res){
-      if(res.error){ console.error("failed to load events", res.error); return; }
+      if(res.error){ console.error("failed to load events", res.error); showWriteBanner(true, "Couldn't reach the database — showing the last saved snapshot."); return; }
+      setWriteState(true);
       if(res.data && res.data.length){
         events = res.data.map(function(row){ return row.data; });
         scheduleRender();

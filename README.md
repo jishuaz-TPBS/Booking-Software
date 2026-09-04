@@ -1,17 +1,15 @@
 # Twist Booking Board
 
 Photo booth event tracker, hosted as a static page on GitHub Pages with
-Supabase as the database. Anyone with the link can view the board;
-editing requires a shared password checked server-side by Supabase.
+Supabase as the database. It's fully open: anyone with the link can
+both view and edit the board — there is no password or login.
 
 **Live site:** https://jishuaz-tpbs.github.io/Booking-Software/
 **Supabase project:** `twist-booking-board` in the "Twist Photo Booths"
 org (project ref `mklxquarwjyyegkxtyvv`)
 
-The edit password is intentionally **not** written here — this repo is
-public, and anything in it is world-readable. It was set when
-`01_setup.sql` ran; to see or change it, open Supabase's Table Editor
-on the `app_secrets` table (never commit it to this repo).
+Keep the link itself as the access control — anyone you send it to can
+change or delete bookings, with no confirmation step.
 
 ## Already set up
 
@@ -26,24 +24,21 @@ you ever need to recreate the project from scratch.
 ### 1. Supabase
 
 1. Create a project at https://supabase.com (or use an existing one).
-2. Open **SQL Editor > New query**, paste in `supabase/01_setup.sql`.
-   Before running it, change the placeholder password on this line:
-   ```sql
-   insert into app_secrets (key, value) values ('edit_password', 'CHANGE_ME_BEFORE_RUNNING')
-   ```
-   to whatever password your team should use to unlock editing. Run it.
+2. Open **SQL Editor > New query**, paste in `supabase/01_setup.sql`
+   and run it — this creates the `events` table.
 3. Open a new query, paste in `supabase/02_seed.sql`, and run it. This
    loads the 59 existing bookings into the `events` table.
-4. Go to **Settings > API Keys** and copy the **Project URL** and the
+4. Open a new query, paste in `supabase/03_open_write_access.sql`, and
+   run it — this grants open read/write access to anyone with the
+   publishable key (used instead of the password-gated setup that
+   `01_setup.sql` originally created).
+5. Go to **Settings > API Keys** and copy the **Project URL** and the
    **Publishable key**.
-5. In `index.html`, near the top of the `<body>`, fill in:
+6. In `index.html`, near the top of the `<body>`, fill in:
    ```html
    window.SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
    window.SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
    ```
-   That key is safe to publish — Row Level Security and the
-   password-gated RPC functions in `01_setup.sql` are what actually
-   control access, not the key itself.
 
 ### 2. GitHub Pages
 
@@ -57,12 +52,11 @@ you ever need to recreate the project from scratch.
 
 ## How editing works
 
-- The page is read-only until someone clicks **"🔒 Unlock editing"**
-  and enters the shared password.
-- The password is never checked in the browser — it's sent with every
-  save to a Supabase function (`upsert_event` / `delete_event`) that
-  verifies it server-side before touching the `events` table.
+- No password, no login — the "+ Add event" button and every field on
+  the board are live and save automatically as soon as Supabase
+  connects (a banner shows if the connection fails).
 - Multiple people can have the page open at once; changes sync live
   via Supabase Realtime.
-- To change the password later, update the `app_secrets` row in
-  Supabase (Table Editor or SQL Editor) — no redeploy needed.
+- Access control lives entirely in who has the link. If that ever
+  needs to change, `supabase/03_open_write_access.sql` shows the RLS
+  policies to tighten back up.
