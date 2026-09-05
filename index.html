@@ -780,14 +780,24 @@
   function newEventFormHtml(){
     return field("Client name", '<input type="text" id="m_name">', true) +
       field("Booked by", '<input type="text" id="m_bookedBy" placeholder="Who took this booking">', true) +
+      field("Client phone", '<input type="tel" id="m_phone">') +
+      field("Client email", '<input type="email" id="m_email">') +
       field("Event date", '<input type="date" id="m_date">') +
       field("Start time", '<input type="time" id="m_start">') +
       field("End time", '<input type="time" id="m_end">') +
+      field("Duration (hrs, if no start/end)", '<input type="number" step="0.25" id="m_duration">') +
       field("Status", selectInput("m","status","",STATUS_OPTIONS)) +
       field("Booth type", selectInput("m","boothType","",BOOTH_OPTIONS)) +
+      field("Prints included", selectInput("m","prints","",YESNO)) +
       field("Venue / location", '<input type="text" id="m_location">', true) +
       field("Package price", '<input type="number" id="m_price">') +
-      field("Deposit amount", '<input type="number" id="m_deposit">');
+      field("Deposit amount", '<input type="number" id="m_deposit">') +
+      field("Deposit status", selectInput("m","depositStatus","",DEPOSIT_OPTIONS)) +
+      field("Staff assigned", '<input type="text" id="m_staff">') +
+      field("Equipment / backdrop", '<input type="text" id="m_equipment">') +
+      field("Travel distance", '<input type="text" id="m_travelDistance">') +
+      field("Notes", '<textarea id="m_notes"></textarea>', true) +
+      field("Needs review", '<input type="checkbox" id="m_needsReview" style="width:18px;height:18px;">');
   }
   document.getElementById("addBtn").addEventListener("click", function(){
     if(!canWrite) return;
@@ -803,25 +813,33 @@
     if(!name){ document.getElementById("m_name").focus(); return; }
     var statusSel = modalGrid.querySelector('[data-field="status"]');
     var boothSel = modalGrid.querySelector('[data-field="boothType"]');
+    var printsSel = modalGrid.querySelector('[data-field="prints"]');
+    var depositStatusSel = modalGrid.querySelector('[data-field="depositStatus"]');
     var newId = makeId();
     var data = {
       id: newId,
       name: name,
-      phone: "", email: "",
+      phone: document.getElementById("m_phone").value.trim(),
+      email: document.getElementById("m_email").value.trim(),
       bookedBy: document.getElementById("m_bookedBy").value.trim(),
       date: document.getElementById("m_date").value || null,
       start: document.getElementById("m_start").value || null,
       end: document.getElementById("m_end").value || null,
-      durationHrs: null,
+      durationHrs: document.getElementById("m_duration").value === "" ? null : Number(document.getElementById("m_duration").value),
       status: statusSel ? statusSel.value : "",
       boothType: boothSel ? boothSel.value : "",
-      prints: "",
+      prints: printsSel ? printsSel.value : "",
       price: document.getElementById("m_price").value === "" ? null : Number(document.getElementById("m_price").value),
-      depositStatus: "",
+      depositStatus: depositStatusSel ? depositStatusSel.value : "",
       depositAmount: document.getElementById("m_deposit").value === "" ? null : Number(document.getElementById("m_deposit").value),
       location: document.getElementById("m_location").value || "",
-      staff: "", equipment: "", setupTime: "", teardownTime: "", travelDistance: "",
-      notes: "", needsReview: false, addedToCalendar: false,
+      staff: document.getElementById("m_staff").value.trim(),
+      equipment: document.getElementById("m_equipment").value.trim(),
+      setupTime: "", teardownTime: "",
+      travelDistance: document.getElementById("m_travelDistance").value.trim(),
+      notes: document.getElementById("m_notes").value.trim(),
+      needsReview: document.getElementById("m_needsReview").checked,
+      addedToCalendar: false,
     };
     events.push(data);
     openRowId = newId;
