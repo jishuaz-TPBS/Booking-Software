@@ -74,6 +74,11 @@
   .brand h1{font-size:23px; font-weight:600; letter-spacing:-0.01em;}
   .brand .sub{color:var(--muted); font-size:12.5px; letter-spacing:.03em; text-transform:uppercase; margin-top:2px;}
   .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .nav-link{
+    color:var(--muted); font-size:12.5px; font-weight:600; text-decoration:none;
+    border:1px solid var(--line); border-radius:8px; padding:9px 14px; transition:background .15s ease, color .15s ease;
+  }
+  .nav-link:hover{background:var(--surface-2); color:var(--ink);}
   .add-btn{
     background:var(--accent); color:var(--accent-contrast); border:none; padding:10px 18px; border-radius:8px; font-weight:600;
     cursor:pointer; box-shadow:var(--shadow); transition:filter .15s ease, transform .15s ease;
@@ -264,6 +269,7 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <a class="nav-link" href="https://jishuaz-tpbs.github.io/twist-photo-booths-contracts/" target="_blank" rel="noopener">Contracts ↗</a>
       <button class="add-btn" id="addBtn" type="button" disabled>+ Add event</button>
     </div>
   </div>
